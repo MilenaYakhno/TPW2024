@@ -1,6 +1,5 @@
-﻿using System;
+﻿using Logic;
 using System.ComponentModel;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace Model
@@ -22,8 +21,12 @@ namespace Model
             private set
             {
                 if (TopBackingField == value)
+                {
                     return;
+                }
+
                 TopBackingField = value * _scaleFactor;
+
                 RaisePropertyChanged();
             }
         }
@@ -34,8 +37,12 @@ namespace Model
             private set
             {
                 if (LeftBackingField == value)
+                {
                     return;
+                }
+
                 LeftBackingField = value * _scaleFactor;
+
                 RaisePropertyChanged();
             }
         }
@@ -46,23 +53,25 @@ namespace Model
             internal set
             {
                 if (DiameterBackingField == value)
+                {
                     return;
+                }
+                    
                 DiameterBackingField = value * _scaleFactor;
+
                 RaisePropertyChanged();
             }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
 
         private double TopBackingField;
         private double LeftBackingField;
         private double DiameterBackingField;
 
-        public void UpdatePosition(Vector2 newPosition)
+        public void UpdatePosition(ImmutableVector2 newPosition)
         {
             Top = newPosition.Y - (Diameter / 2);
             Left = newPosition.X - (Diameter / 2);
@@ -71,6 +80,7 @@ namespace Model
         public void SetScaleFactor(double scaleFactor)
         {
             _scaleFactor = scaleFactor;
+
             RaisePropertyChanged(nameof(Top));
             RaisePropertyChanged(nameof(Left));
             RaisePropertyChanged(nameof(Diameter));

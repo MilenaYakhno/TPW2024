@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Numerics;
+﻿using Logic;
 using System.Reactive;
 using System.Reactive.Linq;
-using Logic;
 
 namespace Model
 {
@@ -13,26 +9,31 @@ namespace Model
         private LogicAPI _logicAPI;
         private List<ModelBall> _ballsList = new List<ModelBall>();
 
+        private IObservable<EventPattern<BallChangeEventArgs>> eventObservable = null;
+        private List<IDisposable> Balls2Dispose = new List<IDisposable>();
+
+        public event EventHandler<BallChangeEventArgs> BallChanged;
+
         public ModelService(LogicAPI? logicAPI = null)
         {
             _logicAPI = logicAPI ?? LogicAPI.CreateLogicService();
-            _logicAPI.OnBallsPositionsUpdated += UpdateBallsPosition;
+            _logicAPI.OnBallPositionUpdated += UpdateBallPosition;
             eventObservable = Observable.FromEventPattern<BallChangeEventArgs>(this, "BallChanged");
         }
 
-        private void UpdateBallsPosition(object sender, List<Vector2> positions)
+        private void UpdateBallPosition(object sender, BallPositionEventArgs ballPosArgs)
         {
-            for (int i = 0; i < Math.Min(_ballsList.Count, positions.Count); i++)
-            {
-                ModelBall ball = _ballsList[i];
-                ball.UpdatePosition(positions[i]);
-            }
+            ModelBall ball = _ballsList[ballPosArgs.Index];
+            ball.UpdatePosition(ballPosArgs.Position);
         }
+
 
         public override void Dispose()
         {
             foreach (ModelBall item in Balls2Dispose)
+            {
                 item.Dispose();
+            }
         }
 
         public override IDisposable Subscribe(IObserver<IBall> observer)
@@ -45,16 +46,13 @@ namespace Model
             for (int i = 0; i < ballCount; i++)
             {
                 ModelBall newBall = new ModelBall() { Diameter = 20 };
+
                 Balls2Dispose.Add(newBall);
-                _ballsList.Add(newBall); // Add the ball to the list
+                _ballsList.Add(newBall);
                 BallChanged?.Invoke(this, new BallChangeEventArgs() { Ball = newBall });
             }
+
             _logicAPI.Start(ballCount, 10, 400, 420);
         }
-
-        public event EventHandler<BallChangeEventArgs> BallChanged;
-
-        private IObservable<EventPattern<BallChangeEventArgs>> eventObservable = null;
-        private List<IDisposable> Balls2Dispose = new List<IDisposable>();
     }
 }
