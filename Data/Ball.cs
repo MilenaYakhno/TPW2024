@@ -1,45 +1,21 @@
-﻿using System.Diagnostics;
+﻿using System;
 using System.Numerics;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Data
 {
-    internal class Ball : IDataBall
+    internal class Ball
     {
         private Vector2 _pos;
         private Vector2 _velocity;
-        private readonly object _lock = new object();
-        private Action<IDataBall> _positionUpdatedCallback;
+        private Action<object, Vector2, Vector2> _positionUpdatedCallback;
 
-        public Vector2 Position
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _pos;
-                }
-            }
-        }
+        public Vector2 Position => _pos;
+        public Vector2 Velocity { get => _velocity; set => _velocity = value; }
 
-        public Vector2 Velocity
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _velocity;
-                }
-            }
-            set
-            {
-                lock (_lock)
-                {
-                    _velocity = value;
-                }
-            }
-        }
-
-        public Ball(Vector2 pos, Vector2 velocity, Action<IDataBall> positionUpdatedCallback = null)
+        public Ball(Vector2 pos, Vector2 velocity, Action<object, Vector2, Vector2> positionUpdatedCallback = null)
         {
             _pos = pos;
             _velocity = velocity;
@@ -50,22 +26,25 @@ namespace Data
 
         private async Task UpdateAsync()
         {
-            float timeStep = 1f / 60f;
             Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
+            float timeStep = 1f / 60f;
 
             while (true)
             {
-                TimeSpan previousTime = stopwatch.Elapsed;
+                stopwatch.Start();
                 await Task.Delay(TimeSpan.FromSeconds(timeStep));
 
-                lock (_lock)
+                lock(this)
                 {
-                    _pos += _velocity * (float)(stopwatch.Elapsed - previousTime).TotalSeconds;
+                    stopwatch.Stop();
+
+                    float deltaTime = (float)stopwatch.Elapsed.TotalSeconds;
+                    _pos += _velocity * deltaTime;
+
+                    _positionUpdatedCallback?.Invoke(this, _pos, _velocity);
                 }
 
-                _positionUpdatedCallback?.Invoke(this);
+                stopwatch.Reset();
             }
         }
     }

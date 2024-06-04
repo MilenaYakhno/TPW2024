@@ -9,6 +9,7 @@ namespace Data
             return new DataService();
         }
 
-        public abstract IDataBall CreateBall(Vector2 pos, Vector2 velocity, Action<IDataBall> positionUpdatedCallback = null);
+        public abstract object CreateBall(Vector2 pos, Vector2 velocity, Action<object, Vector2, Vector2> positionUpdatedCallback = null);
+        public abstract void SetBallVelocity(object ball, Vector2 newVelocity);
     }
 }

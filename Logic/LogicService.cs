@@ -1,5 +1,10 @@
 ﻿using Data;
+using Microsoft.VisualBasic;
+using System;
+using System.Collections.Generic;
 using System.Numerics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Logic
 {
@@ -8,17 +13,16 @@ namespace Logic
         private DataAPI? _dataAPI;
         private Table _table;
         private float _ballRadius;
-        private float _ballMass = 1.0f;
+        private float _ballMass = 1.0f; // New field for ball mass
+        private Timer _updateTimer;
         private float _ballSpeed = 50f;
 
-        public override event EventHandler<BallPositionEventArgs> OnBallPositionUpdated;
+        public override event EventHandler<List<Vector2>> OnBallsPositionsUpdated;
 
-        private void RaiseBallPositionUpdated(IDataBall ball)
+        private void RaiseBallPositionsUpdated(List<Vector2> positions)
         {
-            ImmutableVector2 immutablePosition = new ConcreteImmutableVector2(ball.Position.X, ball.Position.Y);
-            OnBallPositionUpdated?.Invoke(this, new ConcreteBallPositionEventArgs(_table.GetBallIndex(ball),immutablePosition));
+            OnBallsPositionsUpdated?.Invoke(this, positions);
         }
-
 
         public LogicService(DataAPI? dataAPI = null)
         {
@@ -30,6 +34,33 @@ namespace Logic
             _ballRadius = ballRadius;
             CreateTable(tableWidth, tableHeight);
             SpawnBalls(ballCount, ballRadius);
+            StartUpdateTask();
+        }
+
+        private async void StartUpdateTask()
+        {
+            while (true)
+            {
+                UpdateBallPositions(null);
+                await Task.Delay(TimeSpan.FromSeconds(1f / 60f));
+            }
+        }
+
+        private void UpdateBallPositions(object state)
+        {
+            List<Vector2> positions = new List<Vector2>();
+
+            // Create a snapshot of the balls dictionary
+            Dictionary<object, (Vector2 Position, Vector2 Velocity)> ballsSnapshot = new Dictionary<object, (Vector2 Position, Vector2 Velocity)>(_table.Balls);
+
+            // Iterate through the snapshot of the balls and get their positions
+            foreach (var kvp in ballsSnapshot)
+            {
+                positions.Add(kvp.Value.Position);
+            }
+
+            // Raise the BallPositionsUpdated event
+            RaiseBallPositionsUpdated(positions);
         }
 
         public override object GetTableInfo()
@@ -51,58 +82,54 @@ namespace Logic
 
             float maxDisplacement = radius * 2;
 
-            Action<IDataBall> positionUpdatedCallback = UpdateBall;
+            Action<object, Vector2, Vector2> positionUpdatedCallback = UpdateBall;
 
             for (int row = 0; row < numRows; row++)
             {
                 for (int col = 0; col < numCols; col++)
                 {
-                    float x = (float)(random.NextDouble() * maxDisplacement) + col * (_table.Width - maxDisplacement) / ((numCols > 1) ? (numCols - 1) : numCols);
-                    float y = (float)(random.NextDouble() * maxDisplacement) + row * (_table.Height - maxDisplacement) / ((numRows > 1) ? (numRows - 1) : numRows);
+                    float x = (float)(random.NextDouble() * maxDisplacement) + col * (_table.Width - maxDisplacement) / (numCols - 1);
+                    float y = (float)(random.NextDouble() * maxDisplacement) + row * (_table.Height - maxDisplacement) / (numRows - 1);
 
                     Vector2 pos = new Vector2(x, y);
                     Vector2 vel = GetRandomVelocity(random) * _ballSpeed;
 
-                    _table.AddBall(_dataAPI.CreateBall(pos, vel, positionUpdatedCallback));
+                    _table.AddBall(_dataAPI.CreateBall(pos, vel, positionUpdatedCallback), pos, vel);
                 }
             }
         }
 
-        private void UpdateBall(IDataBall ball)
+        private void UpdateBall(object ball, Vector2 pos, Vector2 vel)
         {
             lock (this)
             {
-                CheckWallCollision(ball);
-                CheckBallCollision(ball);
-                RaiseBallPositionUpdated(ball);
+                _table.UpdateBall(ball, pos, vel);
+                CheckWallCollision(ball, pos, vel);
+                CheckBallCollision(ball, pos);
             }
         }
 
-        private void CheckWallCollision(IDataBall ball)
+        private void CheckWallCollision(object ball, Vector2 Position, Vector2 Velocity)
         {
             if (_table == null)
             {
                 Console.WriteLine("Table is not created yet.");
                 return;
             }
-
-            Vector2 position = ball.Position;
-            Vector2 velocity = ball.Velocity;
 
             // Check collisions with the walls
-            if (position.X - _ballRadius <= 0 && velocity.X < 0 || position.X + _ballRadius >= _table.Width && velocity.X > 0)
+            if (Position.X - _ballRadius <= 0 && Velocity.X < 0 || Position.X + _ballRadius >= _table.Width && Velocity.X > 0)
             {
-                ball.Velocity = new Vector2(-velocity.X, velocity.Y);
+                _dataAPI.SetBallVelocity(ball, new Vector2(-Velocity.X, Velocity.Y));
             }
 
-            if (position.Y - _ballRadius <= 0 && velocity.Y < 0 || position.Y + _ballRadius >= _table.Height && velocity.Y > 0)
+            if (Position.Y - _ballRadius <= 0 && Velocity.Y < 0 || Position.Y + _ballRadius >= _table.Height && Velocity.Y > 0)
             {
-                ball.Velocity = new Vector2(velocity.X, -velocity.Y);
+                _dataAPI.SetBallVelocity(ball, new Vector2(Velocity.X, -Velocity.Y));
             }
         }
 
-
-        private void CheckBallCollision(IDataBall ball)
+        private void CheckBallCollision(object ball, Vector2 position)
         {
             if (_table == null)
             {
@@ -110,13 +137,13 @@ namespace Logic
                 return;
             }
 
-            foreach (var otherBall in _table.Balls)
+            foreach (var otherBall in _table.Balls.Keys)
             {
                 if (otherBall != ball)
                 {
-                    var otherPosition = otherBall.Position;
-                    var distance = Vector2.Distance(ball.Position, otherPosition);
-                    var totalRadius = 2 * _ballRadius;
+                    var (otherPosition, _) = _table.GetBall(otherBall);
+                    var distance = Vector2.Distance(position, otherPosition);
+                    var totalRadius = 2 * _ballRadius; // Since _ballRadius is the radius of each ball
 
                     if (distance <= totalRadius)
                     {
@@ -126,12 +153,10 @@ namespace Logic
             }
         }
 
-        private void ResolveBallCollision(IDataBall ball1, IDataBall ball2)
+        private void ResolveBallCollision(object ball1, object ball2)
         {
-            var pos1 = ball1.Position;
-            var vel1 = ball1.Velocity;
-            var pos2 = ball2.Position;
-            var vel2 = ball2.Velocity;
+            var (pos1, vel1) = _table.GetBall(ball1);
+            var (pos2, vel2) = _table.GetBall(ball2);
 
             var direction = Vector2.Normalize(pos2 - pos1);
 
@@ -150,11 +175,10 @@ namespace Logic
                 var finalVel1 = Vector2.Normalize(newVel1) * _ballSpeed;
                 var finalVel2 = Vector2.Normalize(newVel2) * _ballSpeed;
 
-                ball1.Velocity = finalVel2;
-                ball2.Velocity = finalVel1;
+                _dataAPI.SetBallVelocity(ball1, finalVel2);
+                _dataAPI.SetBallVelocity(ball2, finalVel1);
             }
         }
-
 
         private Vector2 GetRandomVelocity(Random random)
         {

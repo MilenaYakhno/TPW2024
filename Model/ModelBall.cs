@@ -1,5 +1,6 @@
-﻿using Logic;
+﻿using System;
 using System.ComponentModel;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace Model
@@ -61,7 +62,7 @@ namespace Model
         private double LeftBackingField;
         private double DiameterBackingField;
 
-        public void UpdatePosition(ImmutableVector2 newPosition)
+        public void UpdatePosition(Vector2 newPosition)
         {
             Top = newPosition.Y - (Diameter / 2);
             Left = newPosition.X - (Diameter / 2);

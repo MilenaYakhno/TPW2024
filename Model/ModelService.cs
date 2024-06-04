@@ -1,6 +1,10 @@
-﻿using Logic;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
+using Logic;
 
 namespace Model
 {
@@ -12,16 +16,18 @@ namespace Model
         public ModelService(LogicAPI? logicAPI = null)
         {
             _logicAPI = logicAPI ?? LogicAPI.CreateLogicService();
-            _logicAPI.OnBallPositionUpdated += UpdateBallPosition;
+            _logicAPI.OnBallsPositionsUpdated += UpdateBallsPosition;
             eventObservable = Observable.FromEventPattern<BallChangeEventArgs>(this, "BallChanged");
         }
 
-        private void UpdateBallPosition(object sender, BallPositionEventArgs ballPosArgs)
+        private void UpdateBallsPosition(object sender, List<Vector2> positions)
         {
-            ModelBall ball = _ballsList[ballPosArgs.Index];
-            ball.UpdatePosition(ballPosArgs.Position);
+            for (int i = 0; i < Math.Min(_ballsList.Count, positions.Count); i++)
+            {
+                ModelBall ball = _ballsList[i];
+                ball.UpdatePosition(positions[i]);
+            }
         }
-
 
         public override void Dispose()
         {

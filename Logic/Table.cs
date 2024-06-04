@@ -1,4 +1,6 @@
-﻿using Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
 
 namespace Logic
 {
@@ -6,37 +8,29 @@ namespace Logic
     {
         private float _width;
         private float _height;
-        private List<IDataBall> _balls;
+        private Dictionary<object, (Vector2 Position, Vector2 Velocity)> _balls;
 
         public float Width => _width;
         public float Height => _height;
-        public IReadOnlyList<IDataBall> Balls => _balls;
+        public Dictionary<object, (Vector2 Position, Vector2 Velocity)> Balls => _balls;
 
         public Table(float width, float height)
         {
             _width = width;
             _height = height;
-            _balls = new List<IDataBall>();
+            _balls = new Dictionary<object, (Vector2 Position, Vector2 Velocity)>();
         }
 
-        public void AddBall(IDataBall ball)
+        public void AddBall(object ball, Vector2 position, Vector2 velocity)
         {
-            if (!_balls.Contains(ball))
-            {
-                _balls.Add(ball);
-            }
-            else
-            {
-                throw new ArgumentException("The ball is already present in the table.");
-            }
+            _balls.Add(ball, (position, velocity));
         }
 
-        public IDataBall GetBall(IDataBall ball)
+        public void UpdateBall(object ball, Vector2 newPosition, Vector2 newVelocity)
         {
-            int index = _balls.IndexOf(ball);
-            if (index != -1)
+            if (_balls.ContainsKey(ball))
             {
-                return _balls[index];
+                _balls[ball] = (newPosition, newVelocity);
             }
             else
             {
@@ -44,9 +38,16 @@ namespace Logic
             }
         }
 
-        public int GetBallIndex(IDataBall ball)
+        public (Vector2 Position, Vector2 Velocity) GetBall(object ball)
         {
-            return _balls.IndexOf(ball);
+            if (_balls.ContainsKey(ball))
+            {
+                return _balls[ball];
+            }
+            else
+            {
+                throw new ArgumentException("Specified ball object not found in the table.");
+            }
         }
     }
 }

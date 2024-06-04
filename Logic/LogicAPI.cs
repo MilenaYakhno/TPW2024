@@ -1,10 +1,11 @@
 ﻿using Data;
+using System.Numerics;
 
 namespace Logic
 {
     public abstract class LogicAPI
     {
-        public abstract event EventHandler<BallPositionEventArgs> OnBallPositionUpdated;
+        public abstract event EventHandler<List<Vector2>> OnBallsPositionsUpdated;
 
         public static LogicAPI CreateLogicService(DataAPI dataAPI = null)
         {
