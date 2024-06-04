@@ -1,5 +1,5 @@
+using Data;
 using Logic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Numerics;
 
 namespace LogicTest
@@ -20,22 +20,30 @@ namespace LogicTest
             Assert.AreEqual(100, table.Width, "Table width is incorrect.");
             Assert.AreEqual(200, table.Height, "Table height is incorrect.");
 
-            Assert.AreEqual(20, table.Balls.Count, "Incorrect number of balls spawned.");
+            Assert.AreEqual(20, table.Balls.Count(), "Incorrect number of balls spawned.");
         }
     }
 
     class MockDataAPI : Data.DataAPI
     {
-
-        public override object CreateBall(Vector2 pos, Vector2 velocity, Action<object, Vector2, Vector2> positionUpdatedCallback = null)
+        public override IDataBall CreateBall(Vector2 pos, Vector2 velocity, Action<IDataBall> positionUpdatedCallback = null)
         {
-            // For testing purposes, return an empty object
-            return new object();
+            return new MockDataBall(pos, velocity, positionUpdatedCallback);
         }
+    }
 
-        public override void SetBallVelocity(object ball, Vector2 newVelocity)
+    class MockDataBall : IDataBall
+    {
+        public Vector2 Position { get; private set; }
+        public Vector2 Velocity { get; set; }
+
+        private readonly Action<IDataBall> _positionUpdatedCallback;
+
+        public MockDataBall(Vector2 pos, Vector2 velocity, Action<IDataBall> positionUpdatedCallback)
         {
-            throw new NotImplementedException();
+            Position = pos;
+            Velocity = velocity;
+            _positionUpdatedCallback = positionUpdatedCallback;
         }
     }
 }
