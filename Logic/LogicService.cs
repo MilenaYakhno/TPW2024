@@ -7,6 +7,7 @@ namespace Logic
     {
         private DataAPI? _dataAPI;
         private Table _table;
+
         private float _ballRadius;
         private float _ballMass = 1.0f;
         private float _ballSpeed = 50f;

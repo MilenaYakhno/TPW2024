@@ -7,6 +7,7 @@ namespace Data
     {
         private Vector2 _velocity;
         private Vector2 _pos;
+
         private Action<IDataBall> _positionUpdatedCallback;
         private readonly object _lock = new object();
 

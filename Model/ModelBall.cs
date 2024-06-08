@@ -8,6 +8,10 @@ namespace Model
     {
         private double _scaleFactor = 1.0;
 
+        private double TopBackingField;
+        private double LeftBackingField;
+        private double DiameterBackingField;
+
         public ModelBall()
         {
             Top = 0;
@@ -66,10 +70,6 @@ namespace Model
         public event PropertyChangedEventHandler PropertyChanged;
 
         public void Dispose() { }
-
-        private double TopBackingField;
-        private double LeftBackingField;
-        private double DiameterBackingField;
 
         public void UpdatePosition(ImmutableVector2 newPosition)
         {
