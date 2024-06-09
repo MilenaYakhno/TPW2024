@@ -68,16 +68,6 @@ namespace Data
             EnqueueLogEntry(logEntry);
         }
 
-        public void LogTable(DataAPI table)
-        {
-            ClearLogFile();
-
-            JObject tableLogEntry = JObject.FromObject(table);
-            _logEntries.Add(tableLogEntry);
-
-            WriteLogEntriesToFile();
-        }
-
         private void EnqueueLogEntry(JObject logEntry)
         {
             lock (_queueLock)
@@ -122,16 +112,6 @@ namespace Data
             }
 
             WriteLogEntriesToFile();
-        }
-
-        private void ClearLogFile()
-        {
-            lock (_fileWriteLock)
-            {
-                _logEntries.Clear();
-
-                File.WriteAllText(_logFilePath, string.Empty);
-            }
         }
     }
 }
