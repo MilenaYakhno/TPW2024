@@ -11,14 +11,15 @@ namespace DataTest
         public void TestBallCreation()
         {
             // Arrange
+            int id = 1;
             Vector2 initialPosition = new Vector2(10, 10);
             Vector2 initialVelocity = new Vector2(1, -1);
 
             DataAPI dataAPI = DataAPI.CreateDataService();
 
             // Act
-            object ballObject = dataAPI.CreateBall(initialPosition, initialVelocity);
-            Ball ball = ballObject as Ball;
+            object ballObject = dataAPI.CreateBall(id, initialPosition, initialVelocity);
+            DataBall ball = ballObject as DataBall;
 
             // Assert
             Assert.IsNotNull(ball, "Failed to create ball object.");

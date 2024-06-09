@@ -14,9 +14,9 @@ namespace Logic
 
         public override event EventHandler<BallPositionEventArgs> OnBallPositionUpdated;
 
-        private void RaiseBallPositionUpdated(IDataBall ball)
+        private void RaiseBallPositionUpdated(IDataBall ball, Vector2 position)
         {
-            ImmutableVector2 immutablePosition = new ConcreteImmutableVector2(ball.Position.X, ball.Position.Y);
+            ImmutableVector2 immutablePosition = new ConcreteImmutableVector2(position.X, position.Y);
             ConcreteBallPositionEventArgs concreteBallPosition = new ConcreteBallPositionEventArgs(_table.GetBallIndex(ball), immutablePosition);
 
             OnBallPositionUpdated?.Invoke(this, concreteBallPosition);
@@ -55,7 +55,7 @@ namespace Logic
 
             float maxDisplacement = radius * 2;
 
-            Action<IDataBall> positionUpdatedCallback = UpdateBall;
+            Action<IDataBall, Vector2, Vector2> positionUpdatedCallback = UpdateBall;
 
             for (int row = 0; row < numRows; row++)
             {
@@ -67,40 +67,40 @@ namespace Logic
                     Vector2 pos = new Vector2(x, y);
                     Vector2 vel = GetRandomVelocity(random) * _ballSpeed;
 
-                    IDataBall dataBall = _dataAPI.CreateBall(pos, vel, positionUpdatedCallback);
+                    int ballId = _table.Balls.Count() + 1;
+                    IDataBall dataBall = _dataAPI.CreateBall(ballId, pos, vel, positionUpdatedCallback);
 
                     _table.AddBall(dataBall);
                 }
             }
         }
 
-        private void UpdateBall(IDataBall ball)
+        private void UpdateBall(IDataBall ball, Vector2 position, Vector2 velocity)
         {
             lock (this)
             {
-                CheckWallCollision(ball);
+                CheckWallCollision(ball, position, velocity);
                 CheckBallCollision(ball);
-                RaiseBallPositionUpdated(ball);
+                RaiseBallPositionUpdated(ball, position);
             }
         }
 
-        private void CheckWallCollision(IDataBall ball)
+        private void CheckWallCollision(IDataBall ball, Vector2 position, Vector2 velocity)
         {
             if (_table == null)
             {
-                Console.WriteLine("Table is not created yet.");
+                Console.WriteLine("Table is not created");
                 return;
             }
 
-            Vector2 position = ball.Position;
-            Vector2 velocity = ball.Velocity;
-
-            if (position.X - _ballRadius <= 0 && velocity.X < 0 || position.X + _ballRadius >= _table.Width && velocity.X > 0)
+            if (position.X - _ballRadius <= 0 && velocity.X < 0 ||
+                position.X + _ballRadius >= _table.Width && velocity.X > 0)
             {
                 ball.Velocity = new Vector2(-velocity.X, velocity.Y);
             }
 
-            if (position.Y - _ballRadius <= 0 && velocity.Y < 0 || position.Y + _ballRadius >= _table.Height && velocity.Y > 0)
+            if (position.Y - _ballRadius <= 0 && velocity.Y < 0 ||
+                position.Y + _ballRadius >= _table.Height && velocity.Y > 0)
             {
                 ball.Velocity = new Vector2(velocity.X, -velocity.Y);
             }

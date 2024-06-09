@@ -9,6 +9,6 @@ namespace Data
             return new DataService();
         }
 
-        public abstract IDataBall CreateBall(Vector2 pos, Vector2 velocity, Action<IDataBall> positionUpdatedCallback = null);
+        public abstract IDataBall CreateBall(int id,Vector2 pos, Vector2 velocity, Action<IDataBall, Vector2, Vector2> positionUpdatedCallback = null);
     }
 }
