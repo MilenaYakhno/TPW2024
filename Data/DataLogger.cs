@@ -1,23 +1,18 @@
-﻿using System.Collections.Concurrent;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace Data
 {
     internal class DataLogger
     {
-        private readonly ConcurrentQueue<JObject> _logConcurrentQueue;
-        private readonly JArray _logEntries;
-
-        private Task? _loggingTask;
-        private readonly object _fileWriteLock = new object();
-        private readonly object _queueLock = new object();
-
+        private readonly BlockingCollection<LogEntry> _logEntries;
+        private readonly object _fileHandlingLock = new object();
         private readonly string _logFilePath;
-        private const int MaxQueueSize = 100;
+        private const int MaxQueueSize = 150;
 
         private static DataLogger? _instance = null;
 
@@ -31,87 +26,55 @@ namespace Data
             string projectPath = Directory.GetParent(Environment.CurrentDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
             string logDirectory = Path.Combine(projectPath, "BallLogs");
 
-            _logFilePath = Path.Combine(logDirectory, "logs.json");
-            _logConcurrentQueue = new ConcurrentQueue<JObject>();
-
-            if (File.Exists(_logFilePath))
-            {
-                try
-                {
-                    string fileContent = File.ReadAllText(_logFilePath);
-
-                    _logEntries = JArray.Parse(fileContent);
-                }
-                catch (JsonReaderException)
-                {
-                    _logEntries = new JArray();
-                }
-            }
-            else
+            if (!Directory.Exists(logDirectory))
             {
                 Directory.CreateDirectory(logDirectory);
-                File.Create(_logFilePath).Dispose();
-
-                _logEntries = new JArray();
             }
-        }
 
-        public void AddLogBall(LogBallEntry ball)
-        {
-            JObject logEntry = new JObject
+            _logFilePath = Path.Combine(logDirectory, "logs.json");
+            _logEntries = new BlockingCollection<LogEntry>(MaxQueueSize);
+
+            if (!File.Exists(_logFilePath))
             {
-                ["ID"] = ball.ID,
-                ["Time"] = ball.Time.ToString("o"),
-                ["Position"] = JObject.FromObject(ball.Position)
-            };
-
-            EnqueueLogEntry(logEntry);
-        }
-
-        private void EnqueueLogEntry(JObject logEntry)
-        {
-            lock (_queueLock)
-            {
-                if (_logConcurrentQueue.Count < MaxQueueSize)
-                {
-                    _logConcurrentQueue.Enqueue(logEntry);
-
-                    if (_loggingTask == null || _loggingTask.IsCompleted)
-                    {
-                        _loggingTask = Task.Run(ProcessLogQueue);
-                    }
-                }
-                else
-                {
-                    JObject overflowLogEntry = new JObject
-                    {
-                        ["Time"] = DateTime.Now.ToString("o"),
-                        ["Information"] = "Queue overflow"
-                    };
-
-                    _logEntries.Add(overflowLogEntry);
-                }
+                using (FileStream stream = File.Create(_logFilePath)) { }
             }
+
+            Task.Run(ProcessLogQueue);
         }
 
-        private void WriteLogEntriesToFile()
+        public void AddLog(LogEntry logEntry)
         {
-            string serializedLogEntries = JsonConvert.SerializeObject(_logEntries, Formatting.Indented);
-
-            lock (_fileWriteLock)
+            if (!_logEntries.TryAdd(logEntry))
             {
-                File.WriteAllText(_logFilePath, serializedLogEntries);
+                LogEntry overflowLogEntry = new LogEntry(
+                    -1,
+                    Vector2.Zero,
+                    Vector2.Zero,
+                    DateTime.Now,
+                    "Overflow - no logged information"
+                );
+
+                _logEntries.Add(overflowLogEntry);
             }
         }
 
         private void ProcessLogQueue()
         {
-            while (_logConcurrentQueue.TryDequeue(out JObject logEntry))
+            foreach (var logEntry in _logEntries.GetConsumingEnumerable())
             {
-                _logEntries.Add(logEntry);
+                lock (_fileHandlingLock)
+                {
+                    try
+                    {
+                        string serializedLogEntry = JsonConvert.SerializeObject(logEntry, Formatting.Indented);
+                        File.AppendAllText(_logFilePath, serializedLogEntry + Environment.NewLine);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to write log entry: {ex.Message}");
+                    }
+                }
             }
-
-            WriteLogEntriesToFile();
         }
     }
 }

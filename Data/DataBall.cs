@@ -79,9 +79,15 @@ namespace Data
                     _position += _velocity * elapsedTime;
                     Time = elapsedTime;
 
-                    //Log
-                    LogBallEntry logBall = new LogBallEntry(ID, new Vector2(_position.X, _position.Y), new Vector2(_velocity.X, _velocity.Y), DateTime.Now);
-                    _logger.AddLogBall(logBall);
+                    LogEntry logEntry = new LogEntry(
+                        ID,
+                        new Vector2(_position.X, _position.Y),
+                        new Vector2(_velocity.X, _velocity.Y),
+                        DateTime.Now,
+                        "Logged ball information"
+                    );
+
+                    Task.Run(() => _logger.AddLog(logEntry));
                 }
 
                 _positionUpdatedCallback?.Invoke(this, _position, _velocity);
