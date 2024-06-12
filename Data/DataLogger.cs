@@ -1,18 +1,15 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Collections.Concurrent;
-using System.IO;
 using System.Numerics;
-using System.Threading.Tasks;
 
 namespace Data
 {
-    internal class DataLogger
+    internal class DataLogger : IDisposable
     {
-        private readonly BlockingCollection<LogEntry> _logEntries;
+        private readonly BlockingCollection<LogEntry> _buffer;
         private readonly object _fileHandlingLock = new object();
         private readonly string _logFilePath;
-        private const int MaxQueueSize = 150;
+        private const int _maxBufferSize = 100;
 
         private static DataLogger? _instance = null;
 
@@ -32,7 +29,7 @@ namespace Data
             }
 
             _logFilePath = Path.Combine(logDirectory, "logs.json");
-            _logEntries = new BlockingCollection<LogEntry>(MaxQueueSize);
+            _buffer = new BlockingCollection<LogEntry>(_maxBufferSize);
 
             if (!File.Exists(_logFilePath))
             {
@@ -44,7 +41,7 @@ namespace Data
 
         public void AddLog(LogEntry logEntry)
         {
-            if (!_logEntries.TryAdd(logEntry))
+            if (!_buffer.TryAdd(logEntry))
             {
                 LogEntry overflowLogEntry = new LogEntry(
                     -1,
@@ -54,13 +51,13 @@ namespace Data
                     "Overflow - no logged information"
                 );
 
-                _logEntries.Add(overflowLogEntry);
+                _buffer.Add(overflowLogEntry);
             }
         }
 
         private void ProcessLogQueue()
         {
-            foreach (var logEntry in _logEntries.GetConsumingEnumerable())
+            foreach (var logEntry in _buffer.GetConsumingEnumerable())
             {
                 lock (_fileHandlingLock)
                 {
@@ -75,6 +72,11 @@ namespace Data
                     }
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            _buffer.Dispose();
         }
     }
 }

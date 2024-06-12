@@ -2,7 +2,7 @@
 
 namespace Data
 {
-    internal record LogEntry
+    internal class LogEntry
     {
         public int ID { get; }
         public Vector2 Position { get; }

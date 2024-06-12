@@ -79,6 +79,7 @@ namespace Data
                     _position += _velocity * elapsedTime;
                     Time = elapsedTime;
 
+                    //Log
                     LogEntry logEntry = new LogEntry(
                         ID,
                         new Vector2(_position.X, _position.Y),
