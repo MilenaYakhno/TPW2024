@@ -1,5 +1,7 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Numerics;
 
 namespace Data
@@ -7,9 +9,9 @@ namespace Data
     internal class DataLogger : IDisposable
     {
         private readonly BlockingCollection<LogEntry> _buffer;
-        private readonly object _fileHandlingLock = new object();
+        private readonly int _bufferSize = 100;
         private readonly string _logFilePath;
-        private const int _maxBufferSize = 100;
+        private readonly StreamWriter _streamWriter;
 
         private static DataLogger? _instance = null;
 
@@ -20,38 +22,20 @@ namespace Data
 
         private DataLogger()
         {
-            string projectPath = Directory.GetParent(Environment.CurrentDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
-            string logDirectory = Path.Combine(projectPath, "BallLogs");
-
-            if (!Directory.Exists(logDirectory))
-            {
-                Directory.CreateDirectory(logDirectory);
-            }
-
-            _logFilePath = Path.Combine(logDirectory, "logs.json");
-            _buffer = new BlockingCollection<LogEntry>(_maxBufferSize);
-
-            if (!File.Exists(_logFilePath))
-            {
-                using (FileStream stream = File.Create(_logFilePath)) { }
-            }
+            _logFilePath = "logs.json";
+            _buffer = new BlockingCollection<LogEntry>(_bufferSize);
+            _streamWriter = new StreamWriter(_logFilePath, true);
 
             Task.Run(ProcessLogQueue);
         }
 
         public void AddLog(LogEntry logEntry)
         {
-            if (!_buffer.TryAdd(logEntry))
-            {
-                LogEntry overflowLogEntry = new LogEntry(
-                    -1,
-                    Vector2.Zero,
-                    Vector2.Zero,
-                    DateTime.Now,
-                    "Overflow - no logged information"
-                );
+            bool isLogEntryAdded = _buffer.TryAdd(logEntry);
 
-                _buffer.Add(overflowLogEntry);
+            if (!isLogEntryAdded)
+            {
+                Console.WriteLine($"Failed to write log entry: buffer overflow");
             }
         }
 
@@ -59,17 +43,15 @@ namespace Data
         {
             foreach (var logEntry in _buffer.GetConsumingEnumerable())
             {
-                lock (_fileHandlingLock)
+                try
                 {
-                    try
-                    {
-                        string serializedLogEntry = JsonConvert.SerializeObject(logEntry, Formatting.Indented);
-                        File.AppendAllText(_logFilePath, serializedLogEntry + Environment.NewLine);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to write log entry: {ex.Message}");
-                    }
+                    string serializedLogEntry = JsonConvert.SerializeObject(logEntry, Formatting.Indented);
+
+                    _streamWriter.WriteLine(serializedLogEntry);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to write log entry: {ex.Message}");
                 }
             }
         }
@@ -77,6 +59,7 @@ namespace Data
         public void Dispose()
         {
             _buffer.Dispose();
+            _streamWriter.Dispose();
         }
     }
 }

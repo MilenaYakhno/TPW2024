@@ -84,8 +84,7 @@ namespace Data
                         ID,
                         new Vector2(_position.X, _position.Y),
                         new Vector2(_velocity.X, _velocity.Y),
-                        DateTime.Now,
-                        "Logged ball information"
+                        DateTime.Now
                     );
 
                     Task.Run(() => _logger.AddLog(logEntry));
